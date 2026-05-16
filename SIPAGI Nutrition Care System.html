@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIPAGI - Solusi Digital Asuhan Gizi Klinis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode:"class",
+  theme:{extend:{
+    colors:{
+      "on-surface-variant":"#424752","outline":"#727784","on-error-container":"#93000a",
+      "secondary-container":"#80f98b","primary-fixed-dim":"#acc7ff","secondary":"#006e25",
+      "background":"#f6faff","primary-fixed":"#d7e2ff","outline-variant":"#c2c6d4",
+      "surface-container-high":"#e0e9f2","on-primary":"#ffffff","on-background":"#141d23",
+      "on-primary-fixed":"#001a40","surface-container":"#e6eff8","on-secondary-container":"#007327",
+      "surface":"#f6faff","surface-container-highest":"#dbe4ed","error-container":"#ffdad6",
+      "error":"#ba1a1a","primary-container":"#0056b3","inverse-surface":"#293138",
+      "inverse-primary":"#acc7ff","on-surface":"#141d23","on-tertiary":"#ffffff",
+      "primary":"#003f87","surface-tint":"#115cb9","tertiary-container":"#57595a",
+      "on-primary-fixed-variant":"#004491","on-secondary":"#ffffff","inverse-on-surface":"#e9f2fb",
+      "tertiary":"#3f4243","surface-variant":"#dbe4ed","surface-container-low":"#ecf5fe",
+      "surface-container-lowest":"#ffffff","on-error":"#ffffff","on-tertiary-container":"#ced0d1"
+    },
+    borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    spacing:{
+      "xs":"4px","margin-desktop":"32px","lg":"48px","md":"24px","gutter":"24px",
+      "base":"8px","sm":"12px","margin-mobile":"16px","xl":"64px"
+    }
+  }}
+}
+</script>
+<style>
+  * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+  body { min-height: 100dvh; background: #f6faff; color: #141d23; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .ms { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal;
+        font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none;
+        white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased; }
+  .ms.fill { font-variation-settings: 'FILL' 1; }
+  .shadow-soft { box-shadow: 0 4px 20px rgba(0,0,0,.05); }
+  .shadow-soft-up { box-shadow: 0 -4px 20px rgba(0,0,0,.05); }
+
+  /* Progress ring */
+  .ring-wrap { position:relative; width:80px; height:80px; }
+  .ring-svg { transform: rotate(-90deg); }
+  .ring-bg { fill:none; stroke:#e0e9f2; stroke-width:8; }
+  .ring-fill { fill:none; stroke:#003f87; stroke-width:8; stroke-linecap:round;
+               stroke-dasharray:188; stroke-dashoffset:28; transition: stroke-dashoffset .8s ease; }
+  .ring-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+               font-size:14px; font-weight:700; color:#003f87; }
+
+  /* Bar chart */
+  .bar { transition: height .6s cubic-bezier(.4,0,.2,1); }
+
+  /* Toast */
+  #toast { position:fixed; top:72px; left:50%; transform:translateX(-50%) translateY(-20px);
+           background:#003f87; color:#fff; padding:10px 20px; border-radius:999px;
+           font-size:14px; font-weight:500; opacity:0; transition: all .3s ease; z-index:999;
+           pointer-events:none; white-space:nowrap; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Modal */
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200;
+              display:flex; align-items:center; justify-content:center; padding:16px; }
+  .modal-box { background:#fff; border-radius:1.5rem; padding:24px; width:100%; max-width:400px;
+               box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+
+  /* Chat bubbles */
+  .bubble-user { background:#003f87; color:#fff; border-radius:18px 18px 4px 18px; }
+  .bubble-bot  { background:#e6eff8; color:#141d23; border-radius:18px 18px 18px 4px; }
+
+  /* Chip toggle */
+  .chip-toggle input:checked + label { background:#003f87; color:#fff; border-color:#003f87; }
+
+  /* Smooth page transition */
+  .page { animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from {opacity:0;transform:translateY(6px)} to {opacity:1;transform:none} }
+
+  /* Meal check */
+  .meal-done { opacity:.55; }
+  .meal-done .meal-icon { background:#e0e9f2 !important; }
+  .meal-done .meal-title { text-decoration: line-through; color:#727784; }
+
+  input[type=number]::-webkit-inner-spin-button { opacity:.5; }
+  select { cursor:pointer; }
+</style>
+</head>
+<body class="pb-24 md:pb-0">
+
+<!-- ====== TOAST ====== -->
+<div id="toast">Notifikasi</div>
+
+<!-- ====== MODALS ====== -->
+<!-- Ubah Profil Modal -->
+<div id="modal-profil" class="modal-bg" style="display:none">
+  <div class="modal-box flex flex-col gap-4">
+    <h3 class="text-lg font-bold text-[#003f87]">Ubah Profil</h3>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">Nama Lengkap</label>
+      <input id="edit-nama" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm" value="Siti Aminah"/>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">Tanggal Lahir</label>
+      <input id="edit-tgl" type="date" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm" value="1965-08-12"/>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">No. Telepon</label>
+      <input id="edit-telp" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm" value="0812-3456-7890"/>
+    </div>
+    <div class="flex gap-3 pt-2">
+      <button onclick="closeModal('modal-profil')" class="flex-1 h-11 rounded-lg border border-[#c2c6d4] text-sm font-medium text-[#424752]">Batal</button>
+      <button onclick="saveProfil()" class="flex-1 h-11 rounded-lg bg-[#003f87] text-white text-sm font-medium">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ganti Password Modal -->
+<div id="modal-pass" class="modal-bg" style="display:none">
+  <div class="modal-box flex flex-col gap-4">
+    <h3 class="text-lg font-bold text-[#003f87]">Ganti Kata Sandi</h3>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">Kata Sandi Lama</label>
+      <input type="password" placeholder="••••••••" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm"/>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">Kata Sandi Baru</label>
+      <input type="password" placeholder="••••••••" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm"/>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-[#727784]">Konfirmasi Kata Sandi Baru</label>
+      <input id="pass-konfirm" type="password" placeholder="••••••••" class="h-11 px-3 rounded-lg border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm"/>
+    </div>
+    <div class="flex gap-3 pt-2">
+      <button onclick="closeModal('modal-pass')" class="flex-1 h-11 rounded-lg border border-[#c2c6d4] text-sm font-medium text-[#424752]">Batal</button>
+      <button onclick="savePass()" class="flex-1 h-11 rounded-lg bg-[#003f87] text-white text-sm font-medium">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout Confirm Modal -->
+<div id="modal-logout" class="modal-bg" style="display:none">
+  <div class="modal-box flex flex-col gap-4 text-center">
+    <span class="ms text-5xl text-[#ba1a1a] mx-auto">logout</span>
+    <h3 class="text-lg font-bold text-[#141d23]">Keluar dari SIPAGI?</h3>
+    <p class="text-sm text-[#424752]">Anda akan keluar dari akun ini.</p>
+    <div class="flex gap-3 pt-2">
+      <button onclick="closeModal('modal-logout')" class="flex-1 h-11 rounded-lg border border-[#c2c6d4] text-sm font-medium">Batal</button>
+      <button onclick="doLogout()" class="flex-1 h-11 rounded-lg bg-[#ba1a1a] text-white text-sm font-medium">Keluar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Riwayat Modal -->
+<div id="modal-riwayat" class="modal-bg" style="display:none">
+  <div class="modal-box flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h3 id="detail-title" class="text-lg font-bold text-[#003f87]">Detail Catatan</h3>
+      <button onclick="closeModal('modal-riwayat')" class="ms text-[#727784]">close</button>
+    </div>
+    <div id="detail-body" class="text-sm text-[#424752] leading-relaxed"></div>
+    <button onclick="closeModal('modal-riwayat')" class="h-11 rounded-lg bg-[#003f87] text-white text-sm font-medium">Tutup</button>
+  </div>
+</div>
+
+<!-- ====== TOP APP BAR ====== -->
+<header class="fixed top-0 w-full z-50 bg-[#f6faff] shadow-soft flex justify-between items-center h-16 px-4 md:px-8">
+  <div class="flex items-center gap-3">
+    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_cjSk0IzPGfifb8zqjczAVtf_3S_vYPARi5_kzp9r43UvSCiGyASHeCztkHNysEgxR-1vkyWIMERPkc-bOawZ7nH2MG3zf7udr4t307bsEcOxn95X19gbU_8unoDnM8G8JEZfZyvC_Ibj7dY_aRXXxjMEibdcO94ajgGdgQZNxmU2aQt2KqBWIvRrVMQpyyRPWl5MqiTyxsk911mvm9-1nbmWNCxZqwfNSAKr-INjF21IuXEZ52us1issn_9MRX5vuJVA12lAh0A" alt="Profil" class="w-10 h-10 rounded-full border border-[#c2c6d4] object-cover"/>
+    <span class="text-[#003f87] font-bold text-lg tracking-tight">SIPAGI</span>
+  </div>
+  <button onclick="showToast('🔔 Tidak ada notifikasi baru')" class="relative p-2 rounded-full text-[#003f87] hover:bg-[#e6eff8] transition-colors">
+    <span class="ms">notifications</span>
+    <span id="notif-badge" class="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full"></span>
+  </button>
+</header>
+
+<!-- ============================== -->
+<!-- PAGE: LANDING (Beranda Splash) -->
+<!-- ============================== -->
+<div id="page-landing" class="page active pt-20 px-4 md:px-8 max-w-6xl mx-auto">
+  <section class="py-12 flex flex-col md:flex-row items-center gap-12">
+    <div class="flex-1 flex flex-col gap-6">
+      <div class="inline-flex items-center gap-1 px-3 py-1 bg-[#d7e2ff] rounded-full w-fit">
+        <span class="w-2 h-2 rounded-full bg-[#003f87]"></span>
+        <span class="text-xs font-medium text-[#001a40]">Asuhan Gizi Terpercaya</span>
+      </div>
+      <h2 class="text-4xl md:text-5xl font-bold text-[#003f87] leading-tight">SIPAGI: Solusi Digital Asuhan Gizi Klinis.</h2>
+      <p class="text-lg text-[#424752] max-w-2xl">Pelayanan asuhan gizi terpercaya untuk pasien ginjal, hipertensi, dan asam urat. Kami hadir untuk membantu Anda mencapai pola hidup sehat dan manajemen nutrisi yang optimal.</p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button onclick="goPage('monitoring')" class="h-12 px-10 bg-[#003f87] text-white rounded-xl text-sm font-semibold shadow-soft hover:bg-[#004491] transition-colors flex items-center justify-center gap-2">
+          <span class="ms text-sm fill">play_circle</span> Mulai Konsultasi
+        </button>
+        <button onclick="scrollTo({top:400,behavior:'smooth'})" class="h-12 px-10 border border-[#727784] text-[#141d23] rounded-xl text-sm font-semibold hover:bg-[#e6eff8] transition-colors flex items-center justify-center">
+          Pelajari Lebih Lanjut
+        </button>
+      </div>
+    </div>
+    <div class="flex-1 w-full relative">
+      <div class="rounded-3xl overflow-hidden shadow-soft bg-[#e6eff8] aspect-[4/3]">
+        <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBb6h6fnof_eLf9rizdp2Z2e6p2rUy703xX-JtJhswRZXuyjJlop9SIev7c4QuZo1-52Pqany_75_jRA22GdeQrG4E7HsPzXKRJj6gUZkSGIC-ddCAoTwT_Zi9Hm1cTRAw_kKcJqAgfr2ZALxWyEG2IwyZtniJLThbTTXJqFjDmJYTieHuZkumGVZ0kAGqyi8MO_WOnTBCv1FECzzERCH4fpip3brnVvL9UjNQ4DzKPPI_Cij_6keF4gurKeAFBIntaKosM00Lxmwk" alt="Konsultasi" class="w-full h-full object-cover"/>
+      </div>
+      <div class="absolute -bottom-4 -left-4 bg-white p-4 rounded-2xl shadow-soft hidden sm:flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-[#80f98b] flex items-center justify-center text-[#007327]">
+          <span class="ms fill">verified_user</span>
+        </div>
+        <div>
+          <p class="text-xl font-bold text-[#003f87]">1000+</p>
+          <p class="text-xs text-[#727784]">Pasien Terbantu</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="py-12" id="fitur">
+    <div class="text-center mb-10">
+      <h3 class="text-3xl font-bold text-[#003f87] mb-3">Layanan Utama Kami</h3>
+      <p class="text-base text-[#424752] max-w-xl mx-auto">Pendekatan klinis yang komprehensif untuk memantau, mengedukasi, dan merawat kebutuhan gizi Anda.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white p-6 rounded-3xl shadow-soft border border-[#e0e9f2] flex flex-col gap-3 md:col-span-2 cursor-pointer hover:shadow-md transition-shadow" onclick="goPage('monitoring')">
+        <div class="w-12 h-12 rounded-xl bg-[#d7e2ff] flex items-center justify-center text-[#003f87]">
+          <span class="ms">monitor_heart</span>
+        </div>
+        <h4 class="text-lg font-semibold text-[#141d23]">Monitoring Gizi Berkala</h4>
+        <p class="text-sm text-[#424752]">Pantau asupan kalori, cairan, dan nutrisi spesifik secara real-time. Sistem kami mencatat perkembangan Anda dan memberikan peringatan jika ada asupan yang perlu disesuaikan.</p>
+        <div class="mt-auto pt-2 flex gap-2">
+          <span class="px-3 py-1 bg-[#e6eff8] rounded-full text-xs text-[#141d23]">Riwayat Harian</span>
+          <span class="px-3 py-1 bg-[#e6eff8] rounded-full text-xs text-[#141d23]">Grafik Nutrisi</span>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-3xl shadow-soft border border-[#e0e9f2] flex flex-col gap-3 cursor-pointer hover:shadow-md transition-shadow" onclick="goPage('konsultasi')">
+        <div class="w-12 h-12 rounded-xl bg-[#80f98b] flex items-center justify-center text-[#007327]">
+          <span class="ms">clinical_notes</span>
+        </div>
+        <h4 class="text-lg font-semibold text-[#141d23]">Konsultasi Ahli Gizi</h4>
+        <p class="text-sm text-[#424752]">Sesi konsultasi langsung dengan dietisien tersertifikasi melalui chat atau video call.</p>
+      </div>
+      <div class="bg-white p-6 rounded-3xl shadow-soft border border-[#e0e9f2] flex flex-col gap-3 cursor-pointer hover:shadow-md transition-shadow" onclick="showToast('Fitur Rujukan akan segera hadir!')">
+        <div class="w-12 h-12 rounded-xl bg-[#ffdad6] flex items-center justify-center text-[#93000a]">
+          <span class="ms">local_hospital</span>
+        </div>
+        <h4 class="text-lg font-semibold text-[#141d23]">Rujukan Kesehatan</h4>
+        <p class="text-sm text-[#424752]">Sistem rujukan terintegrasi ke fasilitas kesehatan terdekat jika kondisi gizi memerlukan penanganan medis lanjutan.</p>
+      </div>
+      <div class="rounded-3xl overflow-hidden shadow-soft md:col-span-2 relative min-h-[200px]">
+        <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC36xQsEZ7b-Ffr3INz4ni4Y5YKG6EnPwtg_tBtT_eBZAfM9M73FHs-2LERD9PzCnOapyL5aHx1_AMMyrWqgeCqqC-4cORqdZDqRGuy6z4CopMLlzhhDE25qpXmgWkkwEuco1wagTMTmRiRZjEAPFdEcX59ab6NbskTo-w-B93MGGP4_NCsZJfdT0gyw9fpMUlsjaNdLvs-mTTwk3plBlEYHXah1cI5iSete2OmCxqNy-Mw6prJTjEzaPH1gNs8wjXA8CwoeU5hfDw" alt="App" class="w-full h-full object-cover absolute inset-0"/>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end">
+          <h4 class="text-lg font-semibold text-white">Akses Mudah dari Genggaman</h4>
+          <p class="text-sm text-white/90">Aplikasi SIPAGI dirancang khusus untuk kenyamanan dan kemudahan akses bagi segala usia.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ====================== -->
+<!-- PAGE: ASSESSMENT GIZI  -->
+<!-- ====================== -->
+<div id="page-assessment" class="page pt-20 px-4 max-w-md mx-auto flex flex-col gap-6">
+  <div class="flex flex-col gap-1 pt-2">
+    <h2 class="text-2xl font-bold text-[#141d23]">Assessment Gizi</h2>
+    <p class="text-sm text-[#424752] flex items-center gap-1">
+      <span class="ms text-base">calendar_today</span>
+      <span id="tanggal-assessment"></span>
+    </p>
+  </div>
+
+  <!-- Antropometri -->
+  <section class="flex flex-col gap-3">
+    <h3 class="text-lg font-semibold text-[#141d23]">Data Antropometri</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <!-- IMT Card -->
+      <div class="col-span-2 bg-[#80f98b] rounded-2xl p-6 shadow-soft flex flex-col items-center text-center relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4 opacity-20">
+          <span class="ms fill text-7xl">monitor_weight</span>
+        </div>
+        <span class="text-sm font-medium text-[#007327] mb-1">Indeks Massa Tubuh (IMT)</span>
+        <span id="imt-val" class="text-5xl font-bold text-[#007327]">22.5</span>
+        <div id="imt-badge" class="mt-2 bg-[#007327] text-[#80f98b] px-4 py-1 rounded-full text-sm font-semibold shadow">Status Gizi: Normal</div>
+      </div>
+      <!-- BB Input -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4] flex flex-col gap-2">
+        <span class="text-xs text-[#727784] flex items-center gap-1"><span class="ms text-base">scale</span> Berat Badan</span>
+        <div class="flex items-baseline gap-1">
+          <input id="bb-input" type="number" min="20" max="300" value="65" class="w-full text-2xl font-bold text-[#141d23] border-0 outline-none bg-transparent" oninput="hitungIMT()"/>
+          <span class="text-sm text-[#424752]">kg</span>
+        </div>
+      </div>
+      <!-- TB Input -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4] flex flex-col gap-2">
+        <span class="text-xs text-[#727784] flex items-center gap-1"><span class="ms text-base">height</span> Tinggi Badan</span>
+        <div class="flex items-baseline gap-1">
+          <input id="tb-input" type="number" min="50" max="250" value="170" class="w-full text-2xl font-bold text-[#141d23] border-0 outline-none bg-transparent" oninput="hitungIMT()"/>
+          <span class="text-sm text-[#424752]">cm</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Biokimia -->
+  <section class="flex flex-col gap-3">
+    <h3 class="text-lg font-semibold text-[#141d23]">Data Biokimia</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <!-- Kreatinin -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4]">
+        <div class="flex justify-between items-start mb-2">
+          <span class="text-sm font-medium text-[#141d23]">Kreatinin</span>
+          <span id="badge-kreatinin" class="text-xs px-2 py-0.5 rounded-full bg-[#80f98b] text-[#007327] font-medium">Normal</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <input id="kreatinin" type="number" step="0.1" min="0" value="0.9" class="w-16 text-xl font-bold text-[#003f87] border-0 border-b border-[#c2c6d4] outline-none bg-transparent" oninput="cekBio('kreatinin',0.5,1.2)"/>
+          <span class="text-xs text-[#424752]">mg/dL</span>
+        </div>
+        <span class="text-xs text-[#727784]">Normal: 0.5–1.2</span>
+      </div>
+      <!-- GFR -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4]">
+        <div class="flex justify-between items-start mb-2">
+          <span class="text-sm font-medium text-[#141d23]">GFR</span>
+          <span id="badge-gfr" class="text-xs px-2 py-0.5 rounded-full bg-[#ffdad6] text-[#93000a] font-medium">Perhatian</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <input id="gfr" type="number" min="0" value="58" class="w-16 text-xl font-bold text-[#ba1a1a] border-0 border-b border-[#c2c6d4] outline-none bg-transparent" oninput="cekGFR()"/>
+          <span class="text-xs text-[#424752]">mL/min</span>
+        </div>
+        <span class="text-xs text-[#727784]">Normal: ≥60</span>
+      </div>
+      <!-- Kalium -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4]">
+        <div class="flex justify-between items-start mb-2">
+          <span class="text-sm font-medium text-[#141d23]">Kalium</span>
+          <span id="badge-kalium" class="text-xs px-2 py-0.5 rounded-full bg-[#80f98b] text-[#007327] font-medium">Normal</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <input id="kalium" type="number" step="0.1" min="0" value="4.2" class="w-16 text-xl font-bold text-[#003f87] border-0 border-b border-[#c2c6d4] outline-none bg-transparent" oninput="cekBio('kalium',3.5,5.0)"/>
+          <span class="text-xs text-[#424752]">mEq/L</span>
+        </div>
+        <span class="text-xs text-[#727784]">Normal: 3.5–5.0</span>
+      </div>
+      <!-- Natrium -->
+      <div class="bg-white rounded-2xl p-4 shadow-soft border border-[#c2c6d4]">
+        <div class="flex justify-between items-start mb-2">
+          <span class="text-sm font-medium text-[#141d23]">Natrium</span>
+          <span id="badge-natrium" class="text-xs px-2 py-0.5 rounded-full bg-[#80f98b] text-[#007327] font-medium">Normal</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <input id="natrium" type="number" min="0" value="140" class="w-16 text-xl font-bold text-[#003f87] border-0 border-b border-[#c2c6d4] outline-none bg-transparent" oninput="cekBio('natrium',135,145)"/>
+          <span class="text-xs text-[#424752]">mEq/L</span>
+        </div>
+        <span class="text-xs text-[#727784]">Normal: 135–145</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Fisik Klinis -->
+  <section class="flex flex-col gap-3">
+    <h3 class="text-lg font-semibold text-[#141d23]">Fisik Klinis</h3>
+    <div class="bg-white rounded-2xl p-5 shadow-soft border border-[#c2c6d4] flex flex-col gap-4">
+      <div class="flex items-start gap-3">
+        <div class="p-2 bg-[#e6eff8] rounded-full text-[#003f87]"><span class="ms">stethoscope</span></div>
+        <div>
+          <span class="text-sm font-medium text-[#141d23]">Diagnosis Medis</span>
+          <textarea id="diagnosis-text" class="mt-1 w-full text-sm text-[#424752] border-0 outline-none bg-transparent resize-none" rows="2">Penyakit Ginjal Kronik (PGK) Stadium 3, Observasi Medis Lanjutan.</textarea>
+        </div>
+      </div>
+      <hr class="border-[#c2c6d4]"/>
+      <div class="flex items-start gap-3">
+        <div class="p-2 bg-[#e6eff8] rounded-full text-[#003f87]"><span class="ms">accessibility_new</span></div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-[#141d23]">Riwayat &amp; Observasi Fisik</span>
+          <div class="mt-2 flex items-center gap-2 bg-[#ffdad6]/30 p-2 rounded-xl border border-[#ffdad6]/60">
+            <span class="ms text-[#ba1a1a] text-lg">warning</span>
+            <span class="text-sm text-[#424752]">Terdapat riwayat <strong class="text-[#141d23]">Edema</strong> pada ekstremitas bawah.</span>
+          </div>
+          <div class="flex gap-2 mt-2 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-[#424752]">
+              <input type="checkbox" checked onchange="showToast(this.checked?'Edema: Aktif':'Edema: Tidak aktif')" class="rounded text-[#003f87]"/> Edema
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-[#424752]">
+              <input type="checkbox" onchange="showToast(this.checked?'Sesak: Aktif':'Sesak: Tidak aktif')" class="rounded text-[#003f87]"/> Sesak Napas
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-[#424752]">
+              <input type="checkbox" onchange="showToast(this.checked?'Pucat: Aktif':'Pucat: Tidak aktif')" class="rounded text-[#003f87]"/> Pucat
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Riwayat Penyakit -->
+  <section class="flex flex-col gap-3">
+    <h3 class="text-lg font-semibold text-[#141d23]">Riwayat Penyakit</h3>
+    <div class="bg-white rounded-2xl p-5 shadow-soft border border-[#c2c6d4]">
+      <div class="flex flex-wrap gap-2">
+        <div class="flex items-center gap-1 px-3 py-1.5 bg-[#e0e9f2] rounded-full border border-[#c2c6d4]">
+          <span class="ms text-base text-[#ba1a1a]">favorite</span>
+          <span class="text-sm font-medium text-[#141d23]">Hipertensi</span>
+        </div>
+        <div class="flex items-center gap-1 px-3 py-1.5 bg-[#e0e9f2] rounded-full border border-[#c2c6d4]">
+          <span class="ms text-base text-[#003f87]">medication</span>
+          <span class="text-sm font-medium text-[#141d23]">Asam Urat</span>
+        </div>
+        <button onclick="tambahPenyakit()" class="flex items-center gap-1 px-3 py-1.5 bg-[#d7e2ff] rounded-full border border-[#003f87] text-[#003f87] text-sm font-medium hover:bg-[#003f87] hover:text-white transition-colors">
+          <span class="ms text-base">add</span> Tambah
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Simpan -->
+  <button onclick="simpanAssessment()" class="w-full h-12 bg-[#003f87] text-white rounded-xl font-semibold text-sm hover:bg-[#004491] transition-colors flex items-center justify-center gap-2 shadow-soft">
+    <span class="ms">save</span> Simpan Assessment
+  </button>
+  <div class="h-4"></div>
+</div>
+
+<!-- =================== -->
+<!-- PAGE: INTERVENSI    -->
+<!-- =================== -->
+<div id="page-intervensi" class="page pt-20 px-4 md:px-8 max-w-5xl mx-auto">
+  <div class="pt-2 mb-5">
+    <h2 class="text-2xl font-bold text-[#141d23]">Intervensi Gizi</h2>
+    <p class="text-sm text-[#424752] mt-1">Rencana asuhan gizi personal Anda.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+    <!-- Kebutuhan Harian -->
+    <div class="md:col-span-4 bg-white rounded-3xl p-6 shadow-soft border border-[#e0e9f2] flex flex-col gap-4">
+      <div class="flex items-center gap-2 text-[#003f87]">
+        <span class="ms">monitor_weight</span>
+        <h3 class="text-lg font-semibold">Kebutuhan Harian</h3>
+      </div>
+      <p class="text-sm text-[#424752]">Target nutrisi berdasarkan kondisi ginjal &amp; hipertensi. Edit nilai sesuai rekomendasi.</p>
+      <div class="grid grid-cols-2 gap-3 mt-auto">
+        <div class="bg-[#ecf5fe] rounded-2xl p-4 flex flex-col items-center text-center border border-[#acc7ff]/30">
+          <span class="ms text-[#0056b3] mb-1">local_fire_department</span>
+          <div class="flex items-baseline gap-1">
+            <input id="kal-target" type="number" value="1800" class="w-16 text-2xl font-bold text-[#003f87] border-0 outline-none bg-transparent text-center"/>
+          </div>
+          <span class="text-xs text-[#424752]">Kkal</span>
+        </div>
+        <div class="bg-[#ffdad6]/40 rounded-2xl p-4 flex flex-col items-center text-center border border-[#ffdad6]">
+          <span class="ms text-[#ba1a1a] mb-1">set_meal</span>
+          <div class="flex items-baseline gap-1">
+            <input id="prot-target" type="number" value="60" class="w-12 text-2xl font-bold text-[#ba1a1a] border-0 outline-none bg-transparent text-center"/>
+          </div>
+          <span class="text-xs text-[#424752]">g Protein</span>
+        </div>
+        <div class="bg-[#d7e2ff]/40 rounded-2xl p-4 flex flex-col items-center text-center col-span-2 border border-[#d7e2ff]">
+          <span class="ms text-[#003f87] mb-1">water_drop</span>
+          <div class="flex items-baseline gap-1">
+            <input id="cairan-target" type="number" step="0.1" value="1.5" class="w-12 text-2xl font-bold text-[#003f87] border-0 outline-none bg-transparent text-center"/>
+            <span class="text-sm text-[#003f87] font-medium">L</span>
+          </div>
+          <span class="text-xs text-[#424752]">Batas Cairan Harian</span>
+        </div>
+      </div>
+      <button onclick="simpanKebutuhan()" class="h-10 bg-[#003f87] text-white rounded-xl text-sm font-semibold hover:bg-[#004491] transition-colors">Simpan Target</button>
+    </div>
+
+    <!-- Jadwal Makan -->
+    <div class="md:col-span-8 bg-white rounded-3xl p-6 shadow-soft border border-[#e0e9f2] flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-[#006e25]">
+          <span class="ms">calendar_month</span>
+          <h3 class="text-lg font-semibold">Jadwal &amp; Menu Sehat</h3>
+        </div>
+        <span id="meal-counter" class="text-xs bg-[#80f98b] text-[#007327] px-3 py-1 rounded-full font-medium">0/4 selesai</span>
+      </div>
+      <p class="text-sm text-[#424752]">Centang menu yang sudah dimakan. Rekomendasi rendah natrium dan protein terkontrol.</p>
+
+      <div class="flex flex-col gap-3" id="meal-list">
+        <!-- Sarapan -->
+        <div class="meal-item flex items-start gap-4 p-4 rounded-2xl bg-[#f6faff] border border-[#e0e9f2] hover:bg-[#e6eff8] transition-colors cursor-pointer" onclick="toggleMeal(this)">
+          <input type="checkbox" class="mt-1 w-5 h-5 rounded text-[#003f87] cursor-pointer shrink-0 meal-cb" onclick="event.stopPropagation()"/>
+          <div class="w-12 h-12 rounded-full bg-[#80f98b] text-[#007327] flex items-center justify-center shrink-0 meal-icon">
+            <span class="ms">bakery_dining</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-1">
+              <h4 class="text-sm font-bold text-[#141d23] meal-title">Sarapan</h4>
+              <span class="text-xs text-[#727784]">07:00 – 08:00</span>
+            </div>
+            <p class="text-sm text-[#424752]">Bubur ayam tanpa kuah kuning, putih telur rebus (1 butir), teh tawar.</p>
+          </div>
+        </div>
+        <!-- Snack Pagi -->
+        <div class="meal-item flex items-start gap-4 p-4 rounded-2xl bg-[#f6faff] border border-[#e0e9f2] hover:bg-[#e6eff8] transition-colors cursor-pointer" onclick="toggleMeal(this)">
+          <input type="checkbox" class="mt-1 w-5 h-5 rounded text-[#003f87] cursor-pointer shrink-0 meal-cb" onclick="event.stopPropagation()"/>
+          <div class="w-12 h-12 rounded-full bg-[#57595a] text-white flex items-center justify-center shrink-0 meal-icon">
+            <span class="ms">apple</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-1">
+              <h4 class="text-sm font-bold text-[#141d23] meal-title">Snack Pagi</h4>
+              <span class="text-xs text-[#727784]">10:00</span>
+            </div>
+            <p class="text-sm text-[#424752]">Buah apel potong (1 buah sedang).</p>
+          </div>
+        </div>
+        <!-- Makan Siang -->
+        <div class="meal-item flex items-start gap-4 p-4 rounded-2xl bg-[#f6faff] border border-[#e0e9f2] hover:bg-[#e6eff8] transition-colors cursor-pointer" onclick="toggleMeal(this)">
+          <input type="checkbox" class="mt-1 w-5 h-5 rounded text-[#003f87] cursor-pointer shrink-0 meal-cb" onclick="event.stopPropagation()"/>
+          <div class="w-12 h-12 rounded-full bg-[#0056b3] text-white flex items-center justify-center shrink-0 meal-icon">
+            <span class="ms">restaurant</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-1">
+              <h4 class="text-sm font-bold text-[#141d23] meal-title">Makan Siang</h4>
+              <span class="text-xs text-[#727784]">12:30 – 13:30</span>
+            </div>
+            <p class="text-sm text-[#424752]">Nasi putih (1 porsi sedang), Ikan panggang bumbu kuning, Tumis labu siam bawang putih.</p>
+          </div>
+        </div>
+        <!-- Makan Malam -->
+        <div class="meal-item flex items-start gap-4 p-4 rounded-2xl bg-[#f6faff] border border-[#e0e9f2] hover:bg-[#e6eff8] transition-colors cursor-pointer" onclick="toggleMeal(this)">
+          <input type="checkbox" class="mt-1 w-5 h-5 rounded text-[#003f87] cursor-pointer shrink-0 meal-cb" onclick="event.stopPropagation()"/>
+          <div class="w-12 h-12 rounded-full bg-[#293138] text-[#e9f2fb] flex items-center justify-center shrink-0 meal-icon">
+            <span class="ms">ramen_dining</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-1">
+              <h4 class="text-sm font-bold text-[#141d23] meal-title">Makan Malam</h4>
+              <span class="text-xs text-[#727784]">18:30 – 19:30</span>
+            </div>
+            <p class="text-sm text-[#424752]">Nasi putih (½ porsi), Ayam rebus suwir, Sup sayur bening (wortel &amp; buncis).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dianjurkan vs Dihindari -->
+    <div class="md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
+      <div class="bg-white rounded-3xl p-6 shadow-soft border border-[#e0e9f2]">
+        <div class="flex items-center gap-2 text-[#006e25] mb-4">
+          <span class="ms fill">check_circle</span>
+          <h4 class="text-lg font-semibold">Dianjurkan</h4>
+        </div>
+        <ul class="flex flex-col gap-2" id="list-anjur">
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#80f98b]/20 rounded-xl"><span class="ms text-[#006e25] text-base">check</span> Sayuran segar (direbus/kukus)</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#80f98b]/20 rounded-xl"><span class="ms text-[#006e25] text-base">check</span> Putih telur sebagai sumber protein</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#80f98b]/20 rounded-xl"><span class="ms text-[#006e25] text-base">check</span> Bumbu alami (bawang, jahe, kunyit)</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#80f98b]/20 rounded-xl"><span class="ms text-[#006e25] text-base">check</span> Buah rendah kalium (Apel, Pir)</li>
+        </ul>
+      </div>
+      <div class="bg-white rounded-3xl p-6 shadow-soft border border-[#e0e9f2]">
+        <div class="flex items-center gap-2 text-[#ba1a1a] mb-4">
+          <span class="ms fill">cancel</span>
+          <h4 class="text-lg font-semibold">Dihindari</h4>
+        </div>
+        <ul class="flex flex-col gap-2">
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#ffdad6]/30 rounded-xl"><span class="ms text-[#ba1a1a] text-base">close</span> Makanan kaleng / olahan pabrik</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#ffdad6]/30 rounded-xl"><span class="ms text-[#ba1a1a] text-base">close</span> Kecap, saus botolan, MSG</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#ffdad6]/30 rounded-xl"><span class="ms text-[#ba1a1a] text-base">close</span> Daging merah berlemak / jeroan</li>
+          <li class="flex items-center gap-2 text-sm text-[#424752] p-2 bg-[#ffdad6]/30 rounded-xl"><span class="ms text-[#ba1a1a] text-base">close</span> Buah tinggi kalium (Pisang, Jeruk)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="h-6"></div>
+</div>
+
+<!-- ================== -->
+<!-- PAGE: MONITORING   -->
+<!-- ================== -->
+<div id="page-monitoring" class="page pt-20 px-4 max-w-md mx-auto flex flex-col gap-5">
+  <!-- Welcome Card -->
+  <section class="bg-[#d7e2ff] rounded-2xl p-5 shadow-soft relative overflow-hidden mt-2">
+    <div class="absolute -right-8 -top-8 w-32 h-32 bg-[#003f87]/10 rounded-full"></div>
+    <div class="relative flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <span class="ms fill text-[#003f87]">favorite</span>
+        <h2 class="text-lg font-semibold text-[#003f87]">Halo, Ibu Siti</h2>
+      </div>
+      <p class="text-sm text-[#424752]">Luar biasa! Kepatuhan diet Anda minggu ini sangat baik. Pertahankan jadwal minum obat hari ini.</p>
+      <button id="obat-btn" onclick="toggleObat(this)" class="inline-flex w-fit bg-[#003f87] text-white text-sm font-semibold px-4 py-2 rounded-full shadow items-center gap-2 hover:bg-[#004491] transition-colors">
+        <span class="ms text-base fill">check_circle</span>
+        <span id="obat-label">Obat Pagi Selesai</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Bento: Kepatuhan + BB -->
+  <section class="grid grid-cols-2 gap-4">
+    <!-- Kepatuhan -->
+    <div class="bg-white rounded-2xl p-5 shadow-soft flex flex-col items-center gap-3">
+      <h3 class="text-xs font-medium text-[#424752] text-center">Kepatuhan Diet</h3>
+      <div class="ring-wrap">
+        <svg class="ring-svg" width="80" height="80" viewBox="0 0 80 80">
+          <circle class="ring-bg" cx="40" cy="40" r="30"/>
+          <circle class="ring-fill" id="ring-fill" cx="40" cy="40" r="30"/>
+        </svg>
+        <div class="ring-text"><span id="ring-pct">85%</span></div>
+      </div>
+      <div class="w-full">
+        <input type="range" min="0" max="100" value="85" class="w-full accent-[#003f87]" oninput="updateRing(this.value)"/>
+        <span class="text-xs text-[#727784]">Minggu ini</span>
+      </div>
+    </div>
+    <!-- Berat Badan -->
+    <div class="bg-white rounded-2xl p-5 shadow-soft flex flex-col justify-between">
+      <div class="flex justify-between items-start">
+        <h3 class="text-xs font-medium text-[#424752]">Berat Badan</h3>
+        <span class="ms fill text-[#006e25]">trending_down</span>
+      </div>
+      <div>
+        <div class="flex items-baseline gap-1 mt-2">
+          <input id="bb-mon" type="number" step="0.1" value="62.5" class="w-20 text-2xl font-bold text-[#141d23] border-0 outline-none bg-transparent" oninput="updateBBChange()"/>
+          <span class="text-sm text-[#727784]">kg</span>
+        </div>
+        <div id="bb-change" class="mt-2 inline-flex items-center gap-1 bg-[#80f98b] text-[#007327] px-2 py-1 rounded-lg text-xs font-medium">
+          <span>-0.5 kg</span>
+        </div>
+      </div>
+      <input type="number" step="0.1" id="bb-prev" value="63.0" placeholder="BB sebelumnya" class="mt-2 w-full text-xs border-b border-[#c2c6d4] outline-none bg-transparent text-[#727784] pb-1"/>
+      <span class="text-xs text-[#727784]">BB sebelumnya (kg)</span>
+    </div>
+  </section>
+
+  <!-- Grafik Gula Darah -->
+  <section class="bg-white rounded-2xl p-5 shadow-soft">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-base font-semibold text-[#141d23]">Gula Darah Puasa</h3>
+      <span class="text-xs text-[#727784]">mg/dL</span>
+    </div>
+    <div class="flex items-end justify-between h-32 gap-2 pb-3 border-b border-[#e0e9f2]">
+      <div class="w-full flex flex-col items-center gap-1">
+        <span class="text-xs font-bold text-[#141d23]" id="bar1-val">145</span>
+        <div class="w-full bg-[#e0e9f2] rounded-t-lg bar" id="bar1" style="height:60%"></div>
+        <span class="text-xs text-[#727784]">Okt</span>
+      </div>
+      <div class="w-full flex flex-col items-center gap-1">
+        <span class="text-xs font-bold text-[#141d23]" id="bar2-val">130</span>
+        <div class="w-full bg-[#e0e9f2] rounded-t-lg bar" id="bar2" style="height:50%"></div>
+        <span class="text-xs text-[#727784]">Nov</span>
+      </div>
+      <div class="w-full flex flex-col items-center gap-1">
+        <span class="text-xs font-bold text-[#003f87]" id="bar3-val">115</span>
+        <div class="w-full bg-[#003f87] rounded-t-lg bar" id="bar3" style="height:40%"></div>
+        <span class="text-xs text-[#003f87] font-bold">Des</span>
+      </div>
+    </div>
+    <!-- Input bulan ini -->
+    <div class="mt-3 flex items-center gap-3">
+      <label class="text-xs text-[#424752] shrink-0">Input Des:</label>
+      <input type="number" id="gula-input" value="115" min="50" max="400" class="w-16 h-8 px-2 rounded-lg border border-[#c2c6d4] text-sm outline-none text-center" oninput="updateChart()"/>
+      <span class="text-xs text-[#424752]">mg/dL</span>
+      <div class="ml-auto">
+        <span id="target-badge" class="text-xs text-[#006e25] flex items-center gap-1">
+          <span class="ms text-base fill">check_circle</span> Target: &lt;120
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section class="bg-white rounded-2xl p-5 shadow-soft">
+    <h3 class="text-base font-semibold text-[#141d23] mb-4">Catatan Terbaru</h3>
+    <div class="relative pl-6 border-l-2 border-[#e0e9f2] flex flex-col gap-5">
+      <div class="relative">
+        <div class="absolute -left-[35px] top-1 w-4 h-4 bg-[#003f87] rounded-full border-4 border-white"></div>
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between items-baseline">
+            <h4 class="text-sm font-semibold text-[#141d23]">Konsultasi Gizi</h4>
+            <span class="text-xs text-[#727784]">Hari ini, 09:00</span>
+          </div>
+          <p class="text-sm text-[#424752]">Penyesuaian porsi karbohidrat kompleks. Target kalori harian disesuaikan menjadi 1600 kkal.</p>
+          <div class="flex gap-2 mt-1">
+            <span class="bg-[#ecf5fe] text-[#424752] px-2 py-0.5 rounded text-xs border border-[#c2c6d4]">Dietetik</span>
+          </div>
+        </div>
+      </div>
+      <div class="relative">
+        <div class="absolute -left-[35px] top-1 w-4 h-4 bg-[#c2c6d4] rounded-full border-4 border-white"></div>
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between items-baseline">
+            <h4 class="text-sm font-semibold text-[#141d23]">Cek Lab Rutin</h4>
+            <span class="text-xs text-[#727784]">2 hari lalu</span>
+          </div>
+          <p class="text-sm text-[#424752]">Hasil gula darah puasa menunjukkan perbaikan signifikan. Lanjutkan pola makan saat ini.</p>
+        </div>
+      </div>
+    </div>
+    <button onclick="goPage('intervensi')" class="mt-4 w-full h-10 rounded-xl bg-[#d7e2ff] text-[#003f87] text-sm font-semibold hover:bg-[#acc7ff] transition-colors">
+      Lihat Intervensi Gizi →
+    </button>
+  </section>
+
+  <!-- Quick Nav to Assessment -->
+  <button onclick="goPage('assessment')" class="w-full h-12 border-2 border-[#003f87] text-[#003f87] rounded-xl font-semibold text-sm hover:bg-[#003f87] hover:text-white transition-colors flex items-center justify-center gap-2">
+    <span class="ms">assignment</span> Buka Assessment Gizi
+  </button>
+  <div class="h-4"></div>
+</div>
+
+<!-- ================ -->
+<!-- PAGE: KONSULTASI -->
+<!-- ================ -->
+<div id="page-konsultasi" class="page pt-20 flex flex-col" style="height:100dvh">
+  <div class="px-4 py-3 bg-white border-b border-[#e0e9f2] flex items-center gap-3 shadow-soft">
+    <div class="w-10 h-10 rounded-full bg-[#003f87] flex items-center justify-center text-white">
+      <span class="ms">support_agent</span>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-[#141d23]">dr. Sarah Sp.GK</p>
+      <p class="text-xs text-[#006e25] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#006e25] inline-block"></span>Online</p>
+    </div>
+    <button onclick="showToast('Video call dimulai...')" class="ml-auto p-2 rounded-full text-[#003f87] hover:bg-[#e6eff8]">
+      <span class="ms">videocam</span>
+    </button>
+  </div>
+
+  <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3" style="padding-bottom:100px">
+    <div class="flex justify-start">
+      <div class="bubble-bot px-4 py-3 max-w-[80%] text-sm">Selamat datang di SIPAGI! Saya dr. Sarah, Ahli Gizi Anda. Ada yang ingin dikonsultasikan hari ini? 😊</div>
+    </div>
+  </div>
+
+  <div class="fixed bottom-20 md:bottom-4 left-0 right-0 px-4 pb-2 bg-[#f6faff]">
+    <div class="flex gap-2 mb-2 flex-wrap">
+      <button onclick="sendQuick('Bagaimana diet saya minggu ini?')" class="text-xs px-3 py-1.5 bg-white border border-[#c2c6d4] rounded-full text-[#424752] hover:bg-[#e6eff8] transition-colors">Diet minggu ini</button>
+      <button onclick="sendQuick('Makanan apa yang boleh saya makan?')" class="text-xs px-3 py-1.5 bg-white border border-[#c2c6d4] rounded-full text-[#424752] hover:bg-[#e6eff8] transition-colors">Makanan yang boleh</button>
+      <button onclick="sendQuick('GFR saya turun, apa artinya?')" class="text-xs px-3 py-1.5 bg-white border border-[#c2c6d4] rounded-full text-[#424752] hover:bg-[#e6eff8] transition-colors">GFR saya</button>
+    </div>
+    <div class="flex gap-2 items-end">
+      <textarea id="chat-input" placeholder="Tulis pesan..." rows="1" class="flex-1 px-4 py-3 rounded-2xl border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm resize-none bg-white" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" style="max-height:100px"></textarea>
+      <button onclick="sendMsg()" class="w-12 h-12 bg-[#003f87] text-white rounded-2xl flex items-center justify-center hover:bg-[#004491] transition-colors shrink-0">
+        <span class="ms">send</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============= -->
+<!-- PAGE: PROFIL  -->
+<!-- ============= -->
+<div id="page-profil" class="page pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-4">
+  <!-- Profile Header -->
+  <section class="bg-white rounded-2xl shadow-soft p-6 flex flex-col items-center text-center mt-2">
+    <div class="relative w-24 h-24 rounded-full overflow-hidden border-4 border-[#ecf5fe] mb-3 shadow">
+      <img id="profil-img" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEbacpPntv5z-Gx_NbGLGle_57BV_xbaUCmByCt50T1kAixQ5cLF7f0CxFQzSApbYxfQ9zt8JMVCW7chGcQmDhsWkmuBGjmW-TBI5IXBijHUHTrd0LgRUOIyn5eVmslnr8_sP4a6jTtHUP_QsptqdfNhcndVkxcU7GZ7oHxF_nkJV7dQlRlTZyxs6Rym370sdhX0ha7XVzHpTcCljCPkRtyLTQCU1SCH3fez9KDNE2lzSAA46KYZCVyyBcrBgcgqrw-d_vevucRhw" alt="Foto Profil" class="w-full h-full object-cover"/>
+      <label class="absolute bottom-0 right-0 bg-[#003f87] text-white w-8 h-8 flex items-center justify-center rounded-full shadow cursor-pointer hover:bg-[#004491] transition-colors">
+        <span class="ms text-base">edit</span>
+        <input type="file" accept="image/*" class="hidden" onchange="gantiFoto(this)"/>
+      </label>
+    </div>
+    <h2 id="profil-nama" class="text-2xl font-bold text-[#141d23] mb-1">Ibu Siti</h2>
+    <p class="text-xs text-[#727784] mb-3">ID Pasien: RM-2023-0914</p>
+    <div class="bg-[#80f98b] text-[#007327] rounded-full px-3 py-1 text-sm font-medium flex items-center gap-1">
+      <span class="ms text-base">healing</span> Pasien Ginjal Kronis
+    </div>
+  </section>
+
+  <!-- Data Pribadi -->
+  <section class="bg-white rounded-2xl shadow-soft overflow-hidden">
+    <div class="px-5 py-3 bg-[#f6faff] border-b border-[#e0e9f2] flex items-center gap-2">
+      <span class="ms text-[#003f87]">person</span>
+      <h3 class="text-base font-semibold text-[#141d23]">Data Pribadi</h3>
+    </div>
+    <div class="p-5 flex flex-col gap-3">
+      <div>
+        <span class="text-xs text-[#727784]">Nama Lengkap</span>
+        <p id="dp-nama" class="text-sm text-[#141d23] mt-0.5">Siti Aminah</p>
+      </div>
+      <hr class="border-[#e6eff8]"/>
+      <div>
+        <span class="text-xs text-[#727784]">Tanggal Lahir</span>
+        <p id="dp-tgl" class="text-sm text-[#141d23] mt-0.5">12 Agustus 1965 (58 Tahun)</p>
+      </div>
+      <hr class="border-[#e6eff8]"/>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <span class="text-xs text-[#727784]">Jenis Kelamin</span>
+          <p class="text-sm text-[#141d23] mt-0.5">Perempuan</p>
+        </div>
+        <div>
+          <span class="text-xs text-[#727784]">Golongan Darah</span>
+          <p class="text-sm text-[#141d23] mt-0.5">O+</p>
+        </div>
+      </div>
+      <hr class="border-[#e6eff8]"/>
+      <div>
+        <span class="text-xs text-[#727784]">No. Telepon</span>
+        <p id="dp-telp" class="text-sm text-[#141d23] mt-0.5">0812-3456-7890</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Koneksi Kesehatan -->
+  <section class="bg-white rounded-2xl shadow-soft overflow-hidden">
+    <div class="px-5 py-3 bg-[#f6faff] border-b border-[#e0e9f2] flex items-center gap-2">
+      <span class="ms text-[#003f87]">local_hospital</span>
+      <h3 class="text-base font-semibold text-[#141d23]">Koneksi Kesehatan</h3>
+    </div>
+    <div class="p-5 flex flex-col gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-[#e6eff8] flex items-center justify-center text-[#003f87]"><span class="ms">domain</span></div>
+        <div>
+          <span class="text-xs text-[#727784]">Faskes Terhubung</span>
+          <p class="text-sm font-medium text-[#141d23]">RS Umum Pusat</p>
+        </div>
+      </div>
+      <hr class="border-[#e6eff8]"/>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-[#e6eff8] flex items-center justify-center text-[#003f87]"><span class="ms">nutrition</span></div>
+        <div>
+          <span class="text-xs text-[#727784]">Ahli Gizi Utama</span>
+          <p class="text-sm font-medium text-[#141d23]">dr. Sarah Sp.GK</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pengaturan Akun -->
+  <section class="bg-white rounded-2xl shadow-soft overflow-hidden">
+    <div class="px-5 py-3 bg-[#f6faff] border-b border-[#e0e9f2] flex items-center gap-2">
+      <span class="ms text-[#003f87]">settings</span>
+      <h3 class="text-base font-semibold text-[#141d23]">Pengaturan Akun</h3>
+    </div>
+    <div>
+      <button onclick="openModal('modal-profil')" class="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ecf5fe] transition-colors border-b border-[#e6eff8]">
+        <div class="flex items-center gap-3 text-[#141d23]">
+          <span class="ms text-[#727784]">manage_accounts</span>
+          <span class="text-sm">Ubah Profil</span>
+        </div>
+        <span class="ms text-[#c2c6d4]">chevron_right</span>
+      </button>
+      <button onclick="openModal('modal-pass')" class="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ecf5fe] transition-colors border-b border-[#e6eff8]">
+        <div class="flex items-center gap-3 text-[#141d23]">
+          <span class="ms text-[#727784]">lock</span>
+          <span class="text-sm">Ganti Kata Sandi</span>
+        </div>
+        <span class="ms text-[#c2c6d4]">chevron_right</span>
+      </button>
+      <button onclick="showToast('Membuka kebijakan privasi...')" class="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ecf5fe] transition-colors">
+        <div class="flex items-center gap-3 text-[#141d23]">
+          <span class="ms text-[#727784]">policy</span>
+          <span class="text-sm">Kebijakan Privasi</span>
+        </div>
+        <span class="ms text-[#c2c6d4]">chevron_right</span>
+      </button>
+    </div>
+  </section>
+
+  <button onclick="openModal('modal-logout')" class="w-full h-12 rounded-xl border-2 border-[#ba1a1a] text-[#ba1a1a] text-sm font-semibold hover:bg-[#ffdad6] transition-colors flex items-center justify-center gap-2">
+    <span class="ms">logout</span> Keluar
+  </button>
+</div>
+
+<!-- ============= -->
+<!-- PAGE: RIWAYAT -->
+<!-- ============= -->
+<div id="page-riwayat" class="page pt-20 pb-28 px-4 max-w-2xl mx-auto">
+  <div class="flex flex-col gap-1 pt-2 mb-5">
+    <h2 class="text-2xl font-bold text-[#141d23]">Riwayat Asuhan Gizi</h2>
+    <p class="text-sm text-[#424752]">Pantau seluruh catatan kesehatan dan konsultasi gizi Anda.</p>
+  </div>
+
+  <!-- Filters -->
+  <section class="bg-white rounded-2xl p-4 shadow-soft border border-[#e0e9f2] mb-5">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="relative">
+        <span class="ms absolute left-3 top-1/2 -translate-y-1/2 text-[#727784] text-base">search</span>
+        <input id="search-input" type="text" placeholder="Cari catatan..." class="w-full h-11 pl-10 pr-3 rounded-xl border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm" oninput="filterRiwayat()"/>
+      </div>
+      <div class="relative">
+        <span class="ms absolute left-3 top-1/2 -translate-y-1/2 text-[#727784] text-base">calendar_today</span>
+        <select id="filter-waktu" class="w-full h-11 pl-10 pr-3 rounded-xl border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm appearance-none bg-white" onchange="filterRiwayat()">
+          <option>Semua Waktu</option>
+          <option>Bulan Ini</option>
+          <option>3 Bulan Terakhir</option>
+        </select>
+      </div>
+      <div class="relative">
+        <span class="ms absolute left-3 top-1/2 -translate-y-1/2 text-[#727784] text-base">filter_list</span>
+        <select id="filter-jenis" class="w-full h-11 pl-10 pr-3 rounded-xl border border-[#c2c6d4] focus:border-[#003f87] outline-none text-sm appearance-none bg-white" onchange="filterRiwayat()">
+          <option>Semua Jenis</option>
+          <option>Konsultasi Gizi</option>
+          <option>Lab Biokimia</option>
+          <option>Assessment Gizi</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <div id="riwayat-list" class="flex flex-col gap-4"></div>
+  <p id="no-result" class="hidden text-center text-sm text-[#727784] py-8">Tidak ada catatan yang ditemukan.</p>
+</div>
+
+<!-- ===================== -->
+<!-- BOTTOM NAVIGATION     -->
+<!-- ===================== -->
+<nav class="fixed bottom-0 left-0 w-full z-50 rounded-t-2xl bg-white shadow-soft-up flex justify-around items-center h-20 md:hidden border-t border-[#e0e9f2]">
+  <button onclick="goPage('monitoring')" id="nav-monitoring" class="nav-btn flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-colors">
+    <span class="ms nav-icon">home</span>
+    <span class="text-xs mt-1 font-medium">Beranda</span>
+  </button>
+  <button onclick="goPage('riwayat')" id="nav-riwayat" class="nav-btn flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-colors">
+    <span class="ms nav-icon">history</span>
+    <span class="text-xs mt-1 font-medium">Riwayat</span>
+  </button>
+  <button onclick="goPage('konsultasi')" id="nav-konsultasi" class="nav-btn flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-colors">
+    <span class="ms nav-icon">chat</span>
+    <span class="text-xs mt-1 font-medium">Konsultasi</span>
+  </button>
+  <button onclick="goPage('profil')" id="nav-profil" class="nav-btn flex flex-col items-center justify-center px-4 py-1 rounded-xl transition-colors">
+    <span class="ms nav-icon">person</span>
+    <span class="text-xs mt-1 font-medium">Profil</span>
+  </button>
+</nav>
+
+<script>
+// ===== DATA =====
+const riwayatData = [
+  { id:1, jenis:'Konsultasi Gizi', tanggal:'15 Des 2023', status:'Selesai', statusClass:'bg-[#80f98b] text-[#007327]', icon:'forum', iconBg:'bg-[#d7e2ff]', catatan:'Penyesuaian porsi protein. Protein harian dikurangi dari 80g menjadi 60g sesuai kondisi ginjal. Anjuran memperbanyak konsumsi putih telur.', detail:'Ahli Gizi: dr. Sarah Sp.GK\nDurasi: 45 menit\nTopik: Manajemen Protein & CKD Stage 3' },
+  { id:2, jenis:'Lab Biokimia',    tanggal:'02 Des 2023', status:'Normal',   statusClass:'bg-[#d7e2ff] text-[#004491]',  icon:'science', iconBg:'bg-[#d7e2ff]', catatan:'Kreatinin 0.9 mg/dL, GFR 58 mL/min, Kalium 4.2 mEq/L, Natrium 140 mEq/L. Semua parameter dalam batas yang dapat diterima.', detail:'Lab: RSCM Jakarta\nStatus: Semua normal kecuali GFR perlu pemantauan' },
+  { id:3, jenis:'Assessment Gizi', tanggal:'24 Okt 2023', status:'Selesai', statusClass:'bg-[#80f98b] text-[#007327]', icon:'assignment', iconBg:'bg-[#d7e2ff]', catatan:'Status Gizi: Normal. IMT 22.5 kg/m². Berat badan 65 kg, tinggi 170 cm. Tidak ada tanda malnutrisi.', detail:'Assessor: dr. Sarah Sp.GK\nMetode: ADIME\nKesimpulan: Status gizi baik, pertahankan' },
+  { id:4, jenis:'Konsultasi Gizi', tanggal:'10 Okt 2023', status:'Selesai', statusClass:'bg-[#80f98b] text-[#007327]', icon:'forum', iconBg:'bg-[#d7e2ff]', catatan:'Edukasi diet DASH untuk hipertensi. Pembatasan natrium <1500mg/hari. Perbanyak konsumsi sayuran hijau.', detail:'Ahli Gizi: dr. Sarah Sp.GK\nDurasi: 30 menit\nTopik: Diet DASH & Hipertensi' },
+];
+
+// ===== NAVIGATION =====
+const pageMap = {
+  'monitoring': 'nav-monitoring',
+  'riwayat': 'nav-riwayat',
+  'konsultasi': 'nav-konsultasi',
+  'profil': 'nav-profil',
+};
+
+function goPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  // Update nav
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.remove('text-[#003f87]');
+    b.classList.add('text-[#727784]');
+    b.querySelector('.nav-icon').style.fontVariationSettings = "'FILL' 0";
+  });
+  const activeNav = pageMap[name];
+  if (activeNav) {
+    const btn = document.getElementById(activeNav);
+    btn.classList.add('text-[#003f87]');
+    btn.classList.remove('text-[#727784]');
+    btn.querySelector('.nav-icon').style.fontVariationSettings = "'FILL' 1";
+  }
+  window.scrollTo({ top: 0 });
+}
+
+// ===== TOAST =====
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ===== MODALS =====
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+// Click outside modal to close
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) m.style.display='none'; });
+});
+
+// ===== ASSESSMENT: IMT CALC =====
+function hitungIMT() {
+  const bb = parseFloat(document.getElementById('bb-input').value)||0;
+  const tb = parseFloat(document.getElementById('tb-input').value)||0;
+  if (bb <= 0 || tb <= 0) return;
+  const imt = bb / ((tb/100)*(tb/100));
+  document.getElementById('imt-val').textContent = imt.toFixed(1);
+  let status, color, bg;
+  if (imt < 17) { status='Gizi Buruk'; color='#ba1a1a'; bg='#ffdad6'; }
+  else if (imt < 18.5) { status='Kurus'; color='#93000a'; bg='#ffdad6'; }
+  else if (imt < 25) { status='Normal'; color='#007327'; bg='#80f98b'; }
+  else if (imt < 27) { status='Gemuk'; color='#424752'; bg='#e0e9f2'; }
+  else { status='Obesitas'; color='#ba1a1a'; bg='#ffdad6'; }
+  const badge = document.getElementById('imt-badge');
+  const card = badge.closest('.col-span-2');
+  badge.textContent = 'Status Gizi: ' + status;
+  badge.style.background = color; badge.style.color = bg;
+  card.style.background = bg;
+  document.getElementById('imt-val').style.color = color;
+  document.querySelector('.col-span-2 .text-sm').style.color = color;
+}
+
+function cekBio(id, min, max) {
+  const val = parseFloat(document.getElementById(id).value);
+  const badge = document.getElementById('badge-'+id);
+  const input = document.getElementById(id);
+  const isNormal = val >= min && val <= max;
+  badge.textContent = isNormal ? 'Normal' : 'Abnormal';
+  badge.className = 'text-xs px-2 py-0.5 rounded-full font-medium ' + (isNormal ? 'bg-[#80f98b] text-[#007327]' : 'bg-[#ffdad6] text-[#93000a]');
+  input.style.color = isNormal ? '#003f87' : '#ba1a1a';
+}
+
+function cekGFR() {
+  const val = parseFloat(document.getElementById('gfr').value);
+  const badge = document.getElementById('badge-gfr');
+  const input = document.getElementById('gfr');
+  const ok = val >= 60;
+  badge.textContent = ok ? 'Normal' : 'Perhatian';
+  badge.className = 'text-xs px-2 py-0.5 rounded-full font-medium ' + (ok ? 'bg-[#80f98b] text-[#007327]' : 'bg-[#ffdad6] text-[#93000a]');
+  input.style.color = ok ? '#003f87' : '#ba1a1a';
+}
+
+function simpanAssessment() {
+  showToast('✅ Assessment berhasil disimpan!');
+  setTimeout(() => goPage('monitoring'), 1500);
+}
+
+function tambahPenyakit() {
+  const nama = prompt('Nama penyakit:');
+  if (nama && nama.trim()) showToast('✅ ' + nama.trim() + ' ditambahkan');
+}
+
+// ===== INTERVENSI: MEAL TOGGLE =====
+function toggleMeal(el) {
+  const cb = el.querySelector('.meal-cb');
+  cb.checked = !cb.checked;
+  el.classList.toggle('meal-done', cb.checked);
+  updateMealCounter();
+}
+function updateMealCounter() {
+  const total = document.querySelectorAll('.meal-cb').length;
+  const done = document.querySelectorAll('.meal-cb:checked').length;
+  document.getElementById('meal-counter').textContent = done + '/' + total + ' selesai';
+  if (done === total) showToast('🎉 Semua menu hari ini selesai!');
+}
+document.querySelectorAll('.meal-cb').forEach(cb => {
+  cb.addEventListener('change', () => { cb.closest('.meal-item').classList.toggle('meal-done', cb.checked); updateMealCounter(); });
+});
+
+function simpanKebutuhan() { showToast('✅ Target nutrisi disimpan!'); }
+
+// ===== MONITORING =====
+function updateRing(val) {
+  const circumference = 2 * Math.PI * 30; // 188.5
+  const offset = circumference - (val / 100) * circumference;
+  document.getElementById('ring-fill').style.strokeDashoffset = offset;
+  document.getElementById('ring-pct').textContent = val + '%';
+}
+
+function updateBBChange() {
+  const cur = parseFloat(document.getElementById('bb-mon').value)||0;
+  const prev = parseFloat(document.getElementById('bb-prev').value)||0;
+  const diff = (cur - prev).toFixed(1);
+  const el = document.getElementById('bb-change');
+  el.textContent = (diff > 0 ? '+' : '') + diff + ' kg';
+  el.className = 'mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ' +
+    (diff <= 0 ? 'bg-[#80f98b] text-[#007327]' : 'bg-[#ffdad6] text-[#93000a]');
+}
+
+function updateChart() {
+  const val = parseInt(document.getElementById('gula-input').value)||0;
+  const max = 200;
+  const pct = Math.min(val / max * 100, 100);
+  document.getElementById('bar3').style.height = pct + '%';
+  document.getElementById('bar3-val').textContent = val;
+  const badge = document.getElementById('target-badge');
+  if (val < 120) {
+    badge.innerHTML = '<span class="ms text-base fill">check_circle</span> Target: <120 ✓';
+    badge.className = 'text-xs text-[#006e25] flex items-center gap-1';
+  } else {
+    badge.innerHTML = '<span class="ms text-base fill">warning</span> Melebihi target!';
+    badge.className = 'text-xs text-[#ba1a1a] flex items-center gap-1';
+  }
+}
+
+let obatDone = true;
+function toggleObat(btn) {
+  obatDone = !obatDone;
+  const lbl = document.getElementById('obat-label');
+  if (obatDone) {
+    lbl.textContent = 'Obat Pagi Selesai';
+    btn.className = btn.className.replace('bg-[#e6eff8] text-[#003f87]','bg-[#003f87] text-white');
+    btn.style.background = '#003f87'; btn.style.color = 'white';
+    showToast('✅ Obat pagi dicatat!');
+  } else {
+    lbl.textContent = 'Tandai Obat Selesai';
+    btn.style.background = '#e6eff8'; btn.style.color = '#003f87';
+    showToast('⚠️ Jangan lupa minum obat!');
+  }
+}
+
+// ===== CHAT =====
+const chatResponses = {
+  'diet': 'Diet Anda minggu ini sangat baik! Kepatuhan mencapai 85%. Lanjutkan pola makan rendah natrium dan protein terkontrol. 👍',
+  'makanan': 'Makanan yang dianjurkan: sayuran segar, putih telur, ikan panggang, buah apel/pir. Hindari makanan kaleng, kecap, dan pisang ya. 🥗',
+  'gfr': 'GFR 58 mL/min menunjukkan penurunan fungsi ginjal ringan-sedang (Stadium 3). Penting untuk membatasi protein 60g/hari dan cairan 1.5L/hari. Kontrol rutin setiap 3 bulan.',
+  'default': 'Terima kasih atas pertanyaannya! Saya akan membantu Anda. Untuk informasi lebih spesifik, silakan jadwalkan sesi konsultasi lengkap. Apakah ada hal lain yang ingin ditanyakan? 😊'
+};
+
+function getResponse(msg) {
+  const m = msg.toLowerCase();
+  if (m.includes('diet') || m.includes('minggu')) return chatResponses.diet;
+  if (m.includes('makan') || m.includes('boleh') || m.includes('menu')) return chatResponses.makanan;
+  if (m.includes('gfr') || m.includes('ginjal') || m.includes('kreatinin')) return chatResponses.gfr;
+  return chatResponses.default;
+}
+
+function sendMsg() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  appendMsg(msg, 'user');
+  setTimeout(() => {
+    appendMsg('...', 'bot', true);
+    setTimeout(() => {
+      document.getElementById('typing-msg')?.remove();
+      appendMsg(getResponse(msg), 'bot');
+    }, 1200);
+  }, 300);
+}
+
+function sendQuick(msg) {
+  document.getElementById('chat-input').value = msg;
+  sendMsg();
+}
+
+function appendMsg(text, who, typing=false) {
+  const div = document.createElement('div');
+  div.className = 'flex justify-' + (who==='user' ? 'end' : 'start');
+  if (typing) div.id = 'typing-msg';
+  div.innerHTML = `<div class="${who==='user'?'bubble-user':'bubble-bot'} px-4 py-3 max-w-[80%] text-sm">${text}</div>`;
+  const msgs = document.getElementById('chat-messages');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ===== PROFIL =====
+function saveProfil() {
+  const nama = document.getElementById('edit-nama').value;
+  const tgl = document.getElementById('edit-tgl').value;
+  const telp = document.getElementById('edit-telp').value;
+  document.getElementById('profil-nama').textContent = nama;
+  document.getElementById('dp-nama').textContent = nama;
+  if (tgl) {
+    const d = new Date(tgl);
+    const age = new Date().getFullYear() - d.getFullYear();
+    const opts = {day:'numeric',month:'long',year:'numeric'};
+    document.getElementById('dp-tgl').textContent = d.toLocaleDateString('id-ID',opts) + ' (' + age + ' Tahun)';
+  }
+  document.getElementById('dp-telp').textContent = telp;
+  closeModal('modal-profil');
+  showToast('✅ Profil berhasil diperbarui!');
+}
+
+function savePass() {
+  const k = document.getElementById('pass-konfirm').value;
+  if (!k) { showToast('⚠️ Lengkapi semua field!'); return; }
+  closeModal('modal-pass');
+  showToast('✅ Kata sandi berhasil diubah!');
+}
+
+function gantiFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('profil-img').src = e.target.result; };
+  reader.readAsDataURL(file);
+  showToast('✅ Foto profil diperbarui!');
+}
+
+function doLogout() {
+  closeModal('modal-logout');
+  showToast('👋 Sampai jumpa!');
+  setTimeout(() => { goPage('landing'); updateNavActive(null); }, 1000);
+}
+
+// ===== RIWAYAT =====
+function renderRiwayat(data) {
+  const list = document.getElementById('riwayat-list');
+  const noResult = document.getElementById('no-result');
+  list.innerHTML = '';
+  if (!data.length) { noResult.classList.remove('hidden'); return; }
+  noResult.classList.add('hidden');
+  data.forEach(item => {
+    list.innerHTML += `
+    <article class="bg-white rounded-2xl p-5 shadow-soft border border-[#e0e9f2] flex flex-col gap-4 hover:shadow-md transition-shadow">
+      <div class="flex justify-between items-start">
+        <div class="flex gap-3 items-center">
+          <div class="w-12 h-12 rounded-full ${item.iconBg} text-[#003f87] flex items-center justify-center shrink-0">
+            <span class="ms">${item.icon}</span>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-[#141d23]">${item.jenis}</h3>
+            <p class="text-sm text-[#424752]">${item.tanggal}</p>
+          </div>
+        </div>
+        <span class="${item.statusClass} text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">${item.status}</span>
+      </div>
+      <div class="bg-[#ecf5fe] rounded-xl p-3 border border-[#e0e9f2]">
+        <p class="text-sm text-[#424752]"><span class="font-semibold text-[#141d23]">Catatan:</span> ${item.catatan.split('.')[0]}.</p>
+      </div>
+      <button onclick="showDetail(${item.id})" class="h-11 w-full rounded-xl border border-[#c2c6d4] text-[#003f87] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e6eff8] transition-colors">
+        <span>Lihat Detail</span>
+        <span class="ms text-base">arrow_forward</span>
+      </button>
+    </article>`;
+  });
+}
+
+function filterRiwayat() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const jenis = document.getElementById('filter-jenis').value;
+  let filtered = riwayatData.filter(r => {
+    const matchQ = !q || r.jenis.toLowerCase().includes(q) || r.catatan.toLowerCase().includes(q) || r.tanggal.toLowerCase().includes(q);
+    const matchJ = jenis === 'Semua Jenis' || r.jenis === jenis;
+    return matchQ && matchJ;
+  });
+  renderRiwayat(filtered);
+}
+
+function showDetail(id) {
+  const item = riwayatData.find(r => r.id === id);
+  document.getElementById('detail-title').textContent = item.jenis;
+  document.getElementById('detail-body').innerHTML =
+    `<p class="mb-3 font-medium text-[#141d23]">${item.tanggal} — <span class="text-[#006e25]">${item.status}</span></p>` +
+    `<p class="mb-2"><strong>Catatan:</strong> ${item.catatan}</p>` +
+    `<div class="mt-3 p-3 bg-[#ecf5fe] rounded-xl text-xs text-[#424752] whitespace-pre-line">${item.detail}</div>`;
+  openModal('modal-riwayat');
+}
+
+// ===== INIT =====
+function init() {
+  // Set tanggal assessment
+  const now = new Date();
+  document.getElementById('tanggal-assessment').textContent = now.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+
+  // Set default nav active
+  document.getElementById('nav-monitoring').classList.add('text-[#003f87]');
+  document.getElementById('nav-monitoring').classList.remove('text-[#727784]');
+  document.getElementById('nav-monitoring').querySelector('.nav-icon').style.fontVariationSettings = "'FILL' 1";
+  document.querySelectorAll('.nav-btn:not(#nav-monitoring)').forEach(b => b.classList.add('text-[#727784]'));
+
+  // Render riwayat
+  renderRiwayat(riwayatData);
+
+  // Init ring
+  updateRing(85);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
